@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>ROBOT BREAKER DEMO</title>
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #080b14; color: #ffffff; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: #080b14; color: #ffffff; touch-action: manipulation; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
     body { padding: 6px 8px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 100vh; }
     .top-hud { width: 100%; max-width: 512px; min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px; }
     .top-hud.hidden { display: none; }
@@ -19,6 +19,7 @@
     .screen-wrap { width: 100%; max-width: 512px; background: #080b14; overflow: hidden; }
     canvas#gameCanvas { display: block; width: 100%; height: auto; image-rendering: pixelated; image-rendering: crisp-edges; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
     .nes-controls-area { width: 100%; max-width: 512px; min-height: 176px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 10px 22px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    .nes-controls-area * { touch-action: none; }
     .nes-controls-area.hidden { display: none !important; }
     .nes-unit { position: relative; pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
     .nes-stick-unit { padding: 7px; border-radius: 14px; background: #c8ccd2; border: 3px solid #111215; box-shadow: inset 2px 2px 0 #eaedf2, inset -2px -2px 0 #848890, 0 5px 0 #111215, 0 8px 16px rgba(0,0,0,0.45); }
@@ -12616,6 +12617,32 @@
 (function () {
   "use strict";
 
+  // iPhone Safari ダブルタップ＆ピンチズーム完全防止
+  document.addEventListener("dblclick", function (e) {
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gesturestart", function (e) {
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gesturechange", function (e) {
+    e.preventDefault();
+  }, { passive: false });
+  document.addEventListener("gestureend", function (e) {
+    e.preventDefault();
+  }, { passive: false });
+  let lastTouchEndTime = 0;
+  document.addEventListener("touchend", function (e) {
+    const now = Date.now();
+    if (now - lastTouchEndTime <= 350) {
+      e.preventDefault();
+      const btn = e.target && e.target.closest ? e.target.closest("#retryBtn, #titleBtn") : null;
+      if (btn) {
+        btn.click();
+      }
+    }
+    lastTouchEndTime = now;
+  }, { passive: false });
+
   const { RIGHT, LEFT, DOWN, UP, HAMMER, GameWorld, generateBattleStage } = window.BreakerGame;
   const { Renderer } = window.BreakerRender;
   const NORMAL_STAGES = window.BreakerNormalStages || {};
@@ -12626,7 +12653,7 @@
     C: ["0111110", "1100011", "1100000", "1100000", "1100000", "1100011", "0111110"],
     D: ["1111100", "1100110", "1100011", "1100011", "1100011", "1100110", "1111100"],
     E: ["1111111", "1100000", "1100000", "1111110", "1100000", "1100000", "1111111"],
-    F: ["1111111", "1100000", "1100000", "1111110", "1100000", "1100000", "1100000"],
+    F: ["1111111", "1100000", "1100000", "1111110", "1100000", "1100000", "0000000"],
     G: ["0111110", "1100011", "1100000", "1101111", "1100011", "1100011", "0111110"],
     H: ["1100011", "1100011", "1100011", "1111111", "1100011", "1100011", "1100011"],
     I: ["0111110", "0011100", "0011100", "0011100", "0011100", "0011100", "0111110"],
@@ -13628,13 +13655,13 @@
   }
 
   canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
     const cx = (e.clientX - rect.left) * (canvas.width / rect.width);
     const cy = (e.clientY - rect.top) * (canvas.height / rect.height);
 
     if (appScreen === "title") {
-      e.preventDefault();
       for (let i = 0; i < TITLE_BUTTONS.length; i++) {
         if (hitTest(TITLE_BUTTONS[i].hit, cx, cy)) {
           titleCursor = i;
@@ -13646,7 +13673,6 @@
     }
 
     if (appScreen === "select") {
-      e.preventDefault();
       for (let i = 0; i < SELECT_BUTTONS.length; i++) {
         if (hitTest(SELECT_BUTTONS[i].hit, cx, cy)) {
           selectCursor = i;
@@ -13659,7 +13685,6 @@
 
     if (appScreen === "gameover") {
       if (screenFrame < 18) return;
-      e.preventDefault();
       for (let i = 0; i < OVER_BUTTONS.length; i++) {
         if (hitTest(OVER_BUTTONS[i].hit, cx, cy)) {
           overCursor = i;
@@ -13673,13 +13698,11 @@
 
     if (appScreen === "ending") {
       if (screenFrame < 24) return;
-      e.preventDefault();
       if (hitTest(ENDING_TITLE_BTN.hit, cx, cy)) goToTitle();
       return;
     }
 
     if (appScreen === "playing" && world && world.battleManager && world.battleManager.resultFinished) {
-      e.preventDefault();
       finishBattleAndProceed();
     }
   });
